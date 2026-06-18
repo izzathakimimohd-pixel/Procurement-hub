@@ -7,6 +7,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Spline+Sans:wght@400;500;600&display=swap');
   :root{--ink:#13233f;--navy:#1f3a6e;--navy-d:#15294f;--navy-l:#e6ecf6;--sand:#f4f5f8;--paper:#fff;--line:#dde3ee;--orange:#f08a24;--orange-l:#fdeede;--red:#c0392b;--red-l:#fbe9e7;--green:#1e8449;--green-l:#e6f4ec;--grey:#6b7585;--purple:#7d52d6;--purple-l:#ece7fb;--shadow:0 1px 3px rgba(19,35,63,.08),0 8px 24px rgba(19,35,63,.06);}
+  [data-theme="dark"]{--ink:#e2e8f0;--navy:#60a5fa;--navy-d:#3b82f6;--navy-l:#1e3a5f;--sand:#0f172a;--paper:#1e293b;--line:#334155;--orange:#f59e0b;--orange-l:#2d1f0a;--red:#f87171;--red-l:#2d1010;--green:#4ade80;--green-l:#0f2d1a;--grey:#94a3b8;--purple:#a78bfa;--purple-l:#1e1535;--shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Spline Sans',sans-serif;background:var(--sand);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
   h1,h2,h3,h4{font-family:'Sora',sans-serif;font-weight:700;letter-spacing:-.02em}
@@ -170,7 +171,7 @@
   <div class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="hamb" onclick="toggleSidebar()">☰</button><div class="logo"><div class="logo-mark">B</div><div class="logo-txt">Brilliant <span>Pharma</span></div></div></div>
     <div class="who"><span id="cartWrap" style="display:none" class="bell" onclick="navTo('cart')">🛒<span class="dot" id="cartDot" style="display:none">0</span></span>
     <span id="bellWrap" style="display:none" class="bell" onclick="navTo('orders')">🔔<span class="dot" id="bellDot" style="display:none">0</span></span>
-    <span class="badge" id="whoBadge"></span><span id="whoName"></span><button onclick="logout()">Log Keluar</button></div></div>
+    <span class="badge" id="whoBadge"></span><span id="whoName"></span><button onclick="logout()">Log Keluar</button><button onclick="toggleTheme()" id="themeBtn" style="background:none;font-size:18px;padding:4px 8px;border-radius:8px;border:1.5px solid var(--line);color:var(--ink);margin-left:4px" title="Toggle Dark/Light">🌙</button></div></div>
   <div class="shell">
     <aside class="sidebar" id="sidebar"><nav id="sideNav"></nav>
       <button class="side-logout" onclick="logout()">⎋ Log Keluar</button></aside>
@@ -1528,6 +1529,9 @@ function exportStkVariance(){
 })();
 
 window.addEventListener('DOMContentLoaded',()=>pickRole('klinik'));
+
+function toggleTheme(){const h=document.documentElement;const dark=h.getAttribute('data-theme')==='dark';h.setAttribute('data-theme',dark?'light':'dark');document.getElementById('themeBtn').textContent=dark?'🌙':'☀️';localStorage.setItem('theme',dark?'light':'dark');}
+(function(){const t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);document.addEventListener('DOMContentLoaded',function(){const btn=document.getElementById('themeBtn');if(btn)btn.textContent=t==='dark'?'☀️':'🌙';});})();
 
 </script>
 </body>
