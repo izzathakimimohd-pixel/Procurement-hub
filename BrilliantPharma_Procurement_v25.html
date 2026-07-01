@@ -1183,7 +1183,7 @@ function drawPOPick(){var el=document.getElementById('poPick');if(!el)return;
       '<div style="flex:1;font-size:12.5px"><b>'+c.name+'</b><div style="color:var(--grey);font-size:11px">'+c.sku+' · '+c.unit+'</div></div>'+
       '<button class="btn '+(on?'btn-ghost':'btn-orange')+'" style="width:auto;padding:5px 12px;font-size:12px" onclick="togglePOItem(\''+c.sku+'\')">'+(on?'✓ Dipilih':'+ Tambah')+'</button></div>';
   }).join('');}
-function togglePOItem(sku){if(poDraft.items[sku]){delete poDraft.items[sku];}else{var c=SKUMAP[sku];poDraft.items[sku]={sku:sku,qty:'1',cost:(c&&c.price)||0};}drawPOPick();drawPOItems();}
+function togglePOItem(sku){if(poDraft.items[sku]){delete poDraft.items[sku];}else{var c=SKUMAP[sku];poDraft.items[sku]={sku:sku,qty:'1',cost:(c&&c.price)||0,foc:'0'};}drawPOPick();drawPOItems();}
 function drawPOItems(){var el=document.getElementById('poItems');if(!el)return;
   var items=Object.values(poDraft.items);
   if(!items.length){el.innerHTML='<div style="padding:14px;color:var(--grey);font-size:13px">Belum ada item dipilih.</div>';poGrandLive();return;}
@@ -1191,6 +1191,7 @@ function drawPOItems(){var el=document.getElementById('poItems');if(!el)return;
     return '<div class="mini-row" style="margin-bottom:6px"><div style="flex:1"><b style="font-size:12.5px">'+inf.name+'</b><div class="mini-sub">'+it.sku+' · '+inf.unit+'</div></div>'+
       '<span style="font-size:11px;color:var(--grey)">Qty</span><input type="number" min="1" value="'+it.qty+'" class="mini-qty" oninput="poDraft.items[\''+it.sku+'\'].qty=this.value;poGrandLive()">'+
       '<span style="font-size:11px;color:var(--grey)">Kos RM</span><input type="number" min="0" step="0.01" value="'+it.cost+'" style="width:80px;padding:6px 8px;border:1.5px solid var(--line);border-radius:7px;font-size:13px;text-align:center" oninput="poDraft.items[\''+it.sku+'\'].cost=this.value;poGrandLive()">'+
+      '<span style="font-size:11px;color:var(--green);font-weight:600">FOC</span><input type="number" min="0" value="'+(it.foc||'0')+'" style="width:55px;padding:6px 8px;border:1.5px solid var(--green);border-radius:7px;font-size:13px;text-align:center;color:var(--green)" oninput="poDraft.items[\''+it.sku+'\'].foc=this.value">'+
       '<span style="min-width:80px;text-align:right;font-family:Sora;font-weight:600;font-size:13px" id="pol_'+idc+'">'+fmtRM((parseFloat(it.cost)||0)*(parseInt(it.qty)||0))+'</span>'+
       '<button onclick="togglePOItem(\''+it.sku+'\')" style="color:var(--red);font-size:18px;padding:0 4px">×</button></div>';
   }).join('');
@@ -1199,7 +1200,7 @@ function poGrandLive(){var t=0;Object.values(poDraft.items).forEach(function(it)
 async function addSupplier(){var n=prompt('Nama supplier baru:');if(!n)return;n=n.trim().toUpperCase();if(!n)return;if(SUPPLIERS.indexOf(n)<0){SUPPLIERS.push(n);SUPPLIERS.sort();await saveSuppliers();}poDraft.supplier=n;renderPusat();}
 async function savePO(){
   if(!poDraft.supplier){toast('Sila pilih supplier');return;}
-  var items=Object.values(poDraft.items).filter(function(i){return i.qty&&String(i.qty).trim();}).map(function(i){return {sku:i.sku,qty:i.qty,cost:parseFloat(i.cost)||0};});
+  var items=Object.values(poDraft.items).filter(function(i){return i.qty&&String(i.qty).trim();}).map(function(i){return {sku:i.sku,qty:i.qty,cost:parseFloat(i.cost)||0,foc:parseInt(i.foc)||0};});
   if(!items.length){toast('Sila tambah sekurangnya satu item');return;}
   var no='PO-'+new Date().getFullYear()+'-'+String(POS.length+1).padStart(4,'0');
   var po={id:uid('po'),no:no,supplier:poDraft.supplier,date:today(),note:poDraft.note,status:'dihantar',items:items,createdBy:session.name};
@@ -1209,7 +1210,7 @@ async function savePO(){
 }
 function viewPO(id){var po=POS.find(function(p){return p.id===id;});if(!po)return;
   var rows='';var n=0;
-  po.items.forEach(function(it){n++;var inf=skuInfo(it.sku);var qty=parseInt(it.qty)||0;var cost=parseFloat(it.cost)||0;var amt=cost*qty;
+  po.items.forEach(function(it){n++;var inf=skuInfo(it.sku);var qty=parseInt(it.qty)||0;var cost=parseFloat(it.cost)||0;var amt=cost*qty;var foc=parseInt(it.foc)||0;
     rows+='<tr>'+
       '<td style="text-align:center;border:1px solid #333;padding:5px 6px;vertical-align:top">'+n+'.</td>'+
       '<td style="border:1px solid #333;padding:5px 8px;vertical-align:top">'+inf.name+'<br><span style="font-size:9px;color:#666">'+it.sku+'</span></td>'+
@@ -1217,10 +1218,12 @@ function viewPO(id){var po=POS.find(function(p){return p.id===id;});if(!po)retur
       '<td style="text-align:center;border:1px solid #333;padding:5px 6px;vertical-align:top">'+qty+'</td>'+
       '<td style="text-align:right;border:1px solid #333;padding:5px 8px;vertical-align:top">'+cost.toFixed(4)+'</td>'+
       '<td style="text-align:center;border:1px solid #333;padding:5px 6px;vertical-align:top">'+(parseFloat(it.disc)||0).toFixed(2)+'</td>'+
+      '<td style="text-align:center;border:1px solid #333;padding:5px 6px;vertical-align:top;color:'+(foc>0?'green':'#333')+';font-weight:'+(foc>0?'bold':'normal')+'">'+(foc>0?foc:'—')+'</td>'+
       '<td style="text-align:right;border:1px solid #333;padding:5px 8px;vertical-align:top">'+amt.toFixed(2)+'</td></tr>';});
   // baris kosong supaya table nampak penuh kemas (macam AutoCount)
   var minRows=10;for(var e=n;e<minRows;e++){rows+='<tr>'+
     '<td style="border:1px solid #333;padding:5px 6px">&nbsp;</td>'+
+    '<td style="border:1px solid #333;padding:5px 6px"></td>'+
     '<td style="border:1px solid #333;padding:5px 6px"></td>'+
     '<td style="border:1px solid #333;padding:5px 6px"></td>'+
     '<td style="border:1px solid #333;padding:5px 6px"></td>'+
@@ -1260,6 +1263,7 @@ function viewPO(id){var po=POS.find(function(p){return p.id===id;});if(!po)retur
       '<th style="border:1px solid #333;padding:6px;width:45px">Qty</th>'+
       '<th style="border:1px solid #333;padding:6px;width:80px">U/Price<br>RM</th>'+
       '<th style="border:1px solid #333;padding:6px;width:50px">Disc.</th>'+
+      '<th style="border:1px solid #333;padding:6px;width:45px">FOC</th>'+
       '<th style="border:1px solid #333;padding:6px;width:85px">Total<br>RM</th></tr></thead>'+
       '<tbody>'+rows+'</tbody></table>'+
     // ===== FOOTER: words + total box =====
