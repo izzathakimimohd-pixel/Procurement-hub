@@ -1470,16 +1470,39 @@ function showCreatePO(supplier){
   openDlg(`<h3>📄 Buat Purchase Order</h3>
 <div class="fld"><label>Pembekal</label><input value="${supplier}" disabled></div>
 <p style="font-size:12px;font-weight:700;font-family:Sora;margin-bottom:10px;color:var(--grey)">PILIH PRODUK</p>
-<div style="max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm)">
-  ${PRODUCTS.map(p=>`<div class="prod-row">
-    <div class="pemoji">${p.emoji}</div>
-    <div class="prod-row-info"><div class="pname">${p.name}</div><div class="pcat">${p.cat} · Stok: ${p.stock}</div></div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <input type="number" min="0" placeholder="0" id="po_${p.id}" style="width:70px;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;text-align:center">
-      <div class="prod-row-price">${fmtRM(p.supplierPrice)}</div>
-    </div>
-  </div>`).join('')}
+<div style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm)">
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr>
+      <th style="padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--grey);font-family:Sora;background:var(--sand);border-bottom:1px solid var(--line);text-align:left">Produk</th>
+      <th style="padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--grey);font-family:Sora;background:var(--sand);border-bottom:1px solid var(--line);text-align:center;width:80px">Harga</th>
+      <th style="padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--grey);font-family:Sora;background:var(--sand);border-bottom:1px solid var(--line);text-align:center;width:75px">Qty</th>
+      <th style="padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--green);font-family:Sora;background:var(--sand);border-bottom:1px solid var(--line);text-align:center;width:75px">FOC</th>
+    </tr></thead>
+    <tbody>
+      ${PRODUCTS.map(p=>`<tr style="border-bottom:1px solid var(--line)">
+        <td style="padding:8px 12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">${p.emoji}</span>
+            <div>
+              <div style="font-weight:600;font-size:13px">${p.name}</div>
+              <div style="font-size:11px;color:var(--grey)">${p.cat} · Stok: ${p.stock}</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding:8px 10px;text-align:center;font-weight:600;font-size:13px;color:var(--navy)">${fmtRM(p.supplierPrice)}</td>
+        <td style="padding:8px 10px;text-align:center">
+          <input type="number" min="0" placeholder="0" id="po_qty_${p.id}"
+            style="width:65px;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;text-align:center;font-size:13px">
+        </td>
+        <td style="padding:8px 10px;text-align:center">
+          <input type="number" min="0" placeholder="0" id="po_foc_${p.id}"
+            style="width:65px;padding:6px 8px;border:1.5px solid var(--green-l);border-radius:8px;text-align:center;font-size:13px;background:var(--green-l);color:var(--green)" title="Free of Charge">
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
 </div>
+<div style="font-size:12px;color:var(--grey);margin-top:8px">💡 <b>FOC</b> = Free of Charge — kuantiti percuma dari pembekal (tidak dikenakan bayaran)</div>
 <div class="dlg-footer">
   <button class="btn btn-ghost" onclick="closeDlg()">Batal</button>
   <button class="btn btn-primary" onclick="createPO('${supplier}')">Hantar PO</button>
@@ -1487,9 +1510,13 @@ function showCreatePO(supplier){
 }
 
 async function createPO(supplier){
-  const items=PRODUCTS.map(p=>({pid:p.id,qty:parseInt(document.getElementById('po_'+p.id)?.value)||0,price:p.supplierPrice})).filter(i=>i.qty>0);
+  const items=PRODUCTS.map(p=>{
+    const qty=parseInt(document.getElementById('po_qty_'+p.id)?.value)||0;
+    const foc=parseInt(document.getElementById('po_foc_'+p.id)?.value)||0;
+    return {pid:p.id,qty,foc,price:p.supplierPrice};
+  }).filter(i=>i.qty>0||i.foc>0);
   if(!items.length){toast('❌ Sila masukkan sekurang-kurang 1 produk');return;}
-  const total=items.reduce((s,i)=>s+i.qty*i.price,0);
+  const total=items.reduce((s,i)=>s+i.qty*i.price,0); // FOC tidak dikira dalam total bayaran
   const po={id:uid('PO'),supplier,date:today(),status:'pending',items,total};
   POS.push(po);await savePOs();closeDlg();navTo('hq-po');toast('✓ PO '+po.id+' dihantar ke '+supplier);
 }
@@ -1501,20 +1528,34 @@ function pageHqPO(){
     <button class="btn btn-primary btn-sm" onclick="navTo('hq-suppliers')">+ Buat PO Baru</button>
   </div>
   <div class="tbl-wrap"><table>
-    <thead><tr><th>No. PO</th><th>Pembekal</th><th>Tarikh</th><th>Item</th><th>Jumlah</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>
+      <th>No. PO</th><th>Pembekal</th><th>Tarikh</th><th>Item</th>
+      <th>Jumlah Bayaran</th>
+      <th style="color:var(--green)">FOC</th>
+      <th>Status</th><th></th>
+    </tr></thead>
     <tbody>
-      ${POS.map(po=>`<tr>
-        <td style="font-weight:700">${po.id}</td>
-        <td>${po.supplier}</td>
-        <td>${po.date}</td>
-        <td>${po.items.length} item</td>
-        <td style="font-weight:700;font-family:Sora">${fmtRM(po.total)}</td>
-        <td>${statusPill(po.status)}</td>
-        <td><div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-xs" onclick="viewPO('${po.id}')">Lihat</button>
-          ${po.status==='delivered'?`<button class="btn btn-green btn-xs" onclick="createGRN('${po.id}')">Buat GRN</button>`:''}
-        </div></td>
-      </tr>`).join('')}
+      ${POS.map(po=>{
+        const totalFoc=po.items.reduce((s,i)=>s+(i.foc||0),0);
+        return `<tr>
+          <td style="font-weight:700">${po.id}</td>
+          <td style="font-size:13px">${po.supplier}</td>
+          <td>${po.date}</td>
+          <td>${po.items.length} item</td>
+          <td style="font-weight:700;font-family:Sora">${fmtRM(po.total)}</td>
+          <td>
+            ${totalFoc>0
+              ?`<span style="background:var(--green-l);color:var(--green);padding:3px 8px;border-radius:10px;font-weight:700;font-size:12px;font-family:Sora">+${totalFoc} unit</span>`
+              :`<span style="color:var(--line)">—</span>`}
+          </td>
+          <td>${statusPill(po.status)}</td>
+          <td><div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-xs" onclick="viewPO('${po.id}')">Lihat</button>
+            ${po.status==='delivered'&&!GRNS.some(g=>g.poRef===po.id)?`<button class="btn btn-green btn-xs" onclick="createGRN('${po.id}')">Buat GRN</button>`:''}
+            ${GRNS.some(g=>g.poRef===po.id)?`<span style="font-size:11px;color:var(--green);font-weight:600">✓ GRN dibuat</span>`:''}
+          </div></td>
+        </tr>`;
+      }).join('')}
     </tbody>
   </table></div>
 </div>`;
@@ -1522,17 +1563,40 @@ function pageHqPO(){
 
 function viewPO(id){
   const po=POS.find(x=>x.id===id);if(!po)return;
+  const hasFoc=po.items.some(i=>i.foc>0);
+  const totalFoc=po.items.reduce((s,i)=>s+(i.foc||0),0);
   openDlg(`<h3>📄 ${po.id}</h3>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px">
   <div><b>Pembekal:</b> ${po.supplier}</div><div><b>Tarikh:</b> ${po.date}</div>
-  <div><b>Status:</b> ${statusPill(po.status)}</div><div><b>Jumlah:</b> <b>${fmtRM(po.total)}</b></div>
+  <div><b>Status:</b> ${statusPill(po.status)}</div><div><b>Jumlah Bayaran:</b> <b style="color:var(--navy)">${fmtRM(po.total)}</b></div>
 </div>
-<table><thead><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
+<table><thead><tr>
+  <th>Produk</th><th style="text-align:center">Qty</th>
+  <th style="text-align:center;color:var(--green)">FOC</th>
+  <th style="text-align:center">Harga/unit</th>
+  <th style="text-align:right">Subtotal</th>
+</tr></thead>
 <tbody>${po.items.map(i=>`<tr>
   <td>${pemoji(i.pid)} ${pname(i.pid)}</td>
-  <td>${i.qty}</td><td>${fmtRM(i.price||0)}</td>
-  <td style="font-weight:600">${fmtRM(i.qty*(i.price||0))}</td>
-</tr>`).join('')}</tbody></table>
+  <td style="text-align:center">${i.qty}</td>
+  <td style="text-align:center">
+    ${(i.foc||0)>0
+      ?`<span style="background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:12px;font-weight:700;font-size:12px;font-family:Sora">+${i.foc} FOC</span>`
+      :`<span style="color:var(--line)">—</span>`}
+  </td>
+  <td style="text-align:center">${fmtRM(i.price||0)}</td>
+  <td style="text-align:right;font-weight:600">${fmtRM(i.qty*(i.price||0))}</td>
+</tr>`).join('')}
+<tr style="background:var(--sand)">
+  <td colspan="4" style="font-weight:700;text-align:right">JUMLAH BAYARAN</td>
+  <td style="font-weight:800;font-family:Sora;color:var(--navy);text-align:right">${fmtRM(po.total)}</td>
+</tr>
+${totalFoc>0?`<tr style="background:var(--green-l)">
+  <td colspan="4" style="font-weight:700;text-align:right;color:var(--green)">JUMLAH FOC (Percuma)</td>
+  <td style="font-weight:800;font-family:Sora;color:var(--green);text-align:right">+${totalFoc} unit</td>
+</tr>`:''}
+</tbody></table>
+${hasFoc?`<div style="font-size:12px;color:var(--green);margin-top:10px;font-weight:600">✓ PO ini mengandungi item FOC (Free of Charge) dari pembekal</div>`:''}
 <div class="dlg-footer"><button class="btn btn-ghost" onclick="closeDlg()">Tutup</button></div>`,true);
 }
 
@@ -1541,9 +1605,15 @@ async function createGRN(poId){
   if(GRNS.some(g=>g.poRef===poId)){toast('GRN untuk PO ini sudah wujud');return;}
   const grn={id:uid('GRN'),poRef:poId,supplier:po.supplier,date:today(),items:po.items.map(i=>({...i})),receivedBy:SESSION.name};
   GRNS.push(grn);
-  po.items.forEach(i=>{const p=PRODUCTS.find(x=>x.id===i.pid);if(p)p.stock+=i.qty;});
+  // Stok = qty yang dibeli + FOC (kedua-dua masuk ke inventori)
+  po.items.forEach(i=>{
+    const p=PRODUCTS.find(x=>x.id===i.pid);
+    if(p) p.stock += i.qty + (i.foc||0);
+  });
   await Promise.all([saveGRNs(),saveProducts()]);
-  navTo('hq-grn');toast('✓ GRN '+grn.id+' dibuat. Stok dikemaskini.');
+  navTo('hq-grn');
+  const totalFoc=po.items.reduce((s,i)=>s+(i.foc||0),0);
+  toast(`✓ GRN ${grn.id} dibuat. Stok dikemaskini.${totalFoc>0?' (+'+totalFoc+' unit FOC termasuk)':''}`);
 }
 
 function pageHqGRN(){
@@ -1568,13 +1638,32 @@ function pageHqGRN(){
 
 function viewGRN(id){
   const g=GRNS.find(x=>x.id===id);if(!g)return;
+  const hasFoc=g.items.some(i=>i.foc>0);
   openDlg(`<h3>✅ ${g.id}</h3>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px">
   <div><b>Rujukan PO:</b> ${g.poRef}</div><div><b>Pembekal:</b> ${g.supplier}</div>
   <div><b>Tarikh Terima:</b> ${g.date}</div><div><b>Diterima Oleh:</b> ${g.receivedBy}</div>
 </div>
-<table><thead><tr><th>Produk</th><th>Qty Diterima</th></tr></thead>
-<tbody>${g.items.map(i=>`<tr><td>${pemoji(i.pid)} ${pname(i.pid)}</td><td style="font-weight:600">${i.qty}</td></tr>`).join('')}</tbody></table>
+<table><thead><tr>
+  <th>Produk</th>
+  <th style="text-align:center">Qty Beli</th>
+  <th style="text-align:center;color:var(--green)">FOC</th>
+  <th style="text-align:center">Jumlah Terima</th>
+</tr></thead>
+<tbody>${g.items.map(i=>{
+  const foc=i.foc||0;
+  const total=i.qty+foc;
+  return `<tr>
+    <td>${pemoji(i.pid)} ${pname(i.pid)}</td>
+    <td style="text-align:center;font-weight:600">${i.qty}</td>
+    <td style="text-align:center">
+      ${foc>0?`<span style="background:var(--green-l);color:var(--green);padding:2px 8px;border-radius:10px;font-weight:700;font-size:12px">+${foc}</span>`
+             :`<span style="color:var(--line)">—</span>`}
+    </td>
+    <td style="text-align:center;font-weight:700;color:var(--navy)">${total}</td>
+  </tr>`;
+}).join('')}</tbody></table>
+${hasFoc?`<div style="font-size:12px;color:var(--green);margin-top:10px;background:var(--green-l);padding:8px 12px;border-radius:8px">✓ Stok telah dikemaskini termasuk kuantiti FOC dari pembekal</div>`:''}
 <div class="dlg-footer"><button class="btn btn-ghost" onclick="closeDlg()">Tutup</button></div>`,true);
 }
 
@@ -1680,12 +1769,7 @@ function pageHqAnalytics(){
 </div>`;
 }
 
-function pageHqCatalog(){return '<div class="empty-state"><div class="empty-icon">⏳</div><h4>Loading…</h4></div>';}
-function pageHqSuppliers(){return '<div class="empty-state"><div class="empty-icon">⏳</div><h4>Loading…</h4></div>';}
-function pageHqPO(){return '<div class="empty-state"><div class="empty-icon">⏳</div><h4>Loading…</h4></div>';}
-function pageHqGRN(){return '<div class="empty-state"><div class="empty-icon">⏳</div><h4>Loading…</h4></div>';}
-function pageHqB2cOrders(){return '<div class="empty-state"><div class="empty-icon">⏳</div><h4>Loading…</h4></div>';}
-function pageHqAnalytics(){return '<div class="empty-state"><div class="empty-icon">⏳</div><h4>Loading…</h4></div>';}
+// stubs removed — real implementations above in Step 4
 // ============================================================
 // STEP 5: Branch B2B Module
 // ============================================================
