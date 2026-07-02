@@ -813,6 +813,69 @@ function launchApp(){
   buildSidebar();
   curPage=defaultPage();
   renderPage();
+  initCrossTabSync();
+}
+
+// ===== CROSS-TAB REAL-TIME SYNC =====
+// Browser fires 'storage' event in OTHER tabs when localStorage changes.
+// Tab A (Klinik) saves order → Tab B (HQ) gets event → auto-reload & re-render.
+const SYNC_KEYS={
+  oh_b2b_orders: ['hq-dashboard','hq-b2b-orders','b2b-myorders','b2b-shop'],
+  oh_b2c_orders: ['hq-dashboard','hq-b2c-orders','b2c-orders','b2c-store'],
+  oh_pos:        ['hq-po','sup-po','sup-dashboard','sup-delivery'],
+  oh_grns:       ['hq-grn'],
+  oh_products:   ['hq-catalog','b2b-order','b2c-store','sup-products'],
+};
+
+function initCrossTabSync(){
+  window.addEventListener('storage', async function(e){
+    if(!SESSION||!e.key)return;
+    // Map storage key → pages that care about it
+    const affectedPages=SYNC_KEYS[e.key]||[];
+    if(!affectedPages.length)return;
+
+    // Reload the changed data silently
+    try{
+      if(e.key==='oh_b2b_orders'&&e.newValue) B2B_ORDERS=JSON.parse(e.newValue);
+      if(e.key==='oh_b2c_orders'&&e.newValue) B2C_ORDERS=JSON.parse(e.newValue);
+      if(e.key==='oh_pos'&&e.newValue)         POS=JSON.parse(e.newValue);
+      if(e.key==='oh_grns'&&e.newValue)        GRNS=JSON.parse(e.newValue);
+      if(e.key==='oh_products'&&e.newValue)    PRODUCTS=JSON.parse(e.newValue);
+    }catch(err){}
+
+    // If current page is affected, re-render it
+    if(affectedPages.includes(curPage)){
+      renderPage();
+      buildSidebar();
+      showSyncPulse();
+    }else{
+      // Page not visible but data changed — update sidebar badge counts
+      buildSidebar();
+      showSyncDot();
+    }
+  });
+}
+
+// Subtle green pulse bar at top = "data updated from another tab"
+function showSyncPulse(){
+  let bar=document.getElementById('syncBar');
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id='syncBar';
+    bar.style.cssText='position:fixed;top:62px;left:0;right:0;height:3px;background:var(--green);z-index:999;transition:opacity .5s';
+    document.body.appendChild(bar);
+  }
+  bar.style.opacity='1';
+  clearTimeout(bar._t);
+  bar._t=setTimeout(()=>bar.style.opacity='0',1800);
+  updateTabTitle();
+  toast('🔄 Data dikemaskini dari tab lain');
+}
+
+// Just update the notification dot without re-render
+function showSyncDot(){
+  const nd=document.getElementById('notifDot');
+  if(nd) nd.style.display='block';
 }
 
 function defaultPage(){
@@ -840,6 +903,20 @@ function updateTopbar(){
   badge.className='tb-badge '+(classes[s.role]||'');
   const nd=document.getElementById('notifDot');
   nd.style.display=NOTIFS.some(n=>!n.read)?'block':'none';
+  updateTabTitle();
+}
+
+function updateTabTitle(){
+  if(!SESSION)return;
+  const role=SESSION.role;
+  const pending=(role==='hq'||role==='superadmin')
+    ? b2bPending()+b2cPending()+poPending()
+    : (role==='branch'?Object.keys(B2B_CART).length
+    : (role==='customer'?Object.keys(B2C_CART).length
+    : (role==='supplier'?poPending():0)));
+  document.title=pending>0
+    ? `(${pending}) OrcaHub — ${SESSION.org}`
+    : `OrcaHub — ${SESSION.org}`;
 }
 
 // ===== NAVIGATION =====
@@ -909,6 +986,7 @@ function buildSidebar(){
     </button>`;
   });
   document.getElementById('sideNav').innerHTML=html;
+  updateTabTitle();
 }
 
 function navTo(page){
